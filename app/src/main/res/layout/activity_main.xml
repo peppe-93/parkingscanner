@@ -1,53 +1,111 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center">
+package com.parking.scanner
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Parking Scanner"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:textColor="@android:color/black"
-        android:layout_marginBottom="48dp"/>
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.parking.scanner.databinding.ActivityMainBinding
 
-    <Button
-        android:id="@+id/btnStartScanner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Avvia Scanner"
-        android:textSize="18sp"
-        android:padding="16dp"
-        android:layout_marginBottom="16dp"/>
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
+    
+    companion object {
+        private const val CAMERA_PERMISSION_REQUEST = 100
+    }
 
-    <Button
-        android:id="@+id/btnViewReports"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Visualizza Report"
-        android:textSize="18sp"
-        android:padding="16dp"
-        android:layout_marginBottom="16dp"/>
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-    <Button
-        android:id="@+id/btnSettings"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Impostazioni"
-        android:textSize="18sp"
-        android:padding="16dp"/>
+        setupUI()
+    }
 
-    <TextView
-        android:id="@+id/tvVersion"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="v1.0"
-        android:textSize="12sp"
-        android:textColor="@android:color/darker_gray"
-        android:layout_marginTop="48dp"/>
+    private fun setupUI() {
+        binding.btnStartScanner.setOnClickListener {
+            checkCameraPermissionAndStart()
+        }
 
-</LinearLayout>
+        binding.btnViewReports.setOnClickListener {
+            startActivity(Intent(this, ReportActivity::class.java))
+        }
+
+        binding.btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        // Mostra versione
+        try {
+            val pInfo = packageManager.getPackageInfo(packageName, 0)
+            binding.tvVersion.text = "v${pInfo.versionName}"
+        } catch (e: Exception) {
+            binding.tvVersion.text = "v1.0"
+        }
+    }
+
+    private fun checkCameraPermissionAndStart() {
+        when {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                // Permesso già concesso
+                startScanner()
+            }
+
+            shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
+                // Mostra spiegazione
+                Toast.makeText(
+                    this,
+                    "Il permesso fotocamera è necessario per scansionare i QR code",
+                    Toast.LENGTH_LONG
+                ).show()
+                requestCameraPermission()
+            }
+
+            else -> {
+                // Richiedi permesso
+                requestCameraPermission()
+            }
+        }
+    }
+
+    private fun requestCameraPermission() {
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.CAMERA),
+            CAMERA_PERMISSION_REQUEST
+        )
+    }
+
+    private fun startScanner() {
+        startActivity(Intent(this, ScannerActivity::class.java))
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        
+        when (requestCode) {
+            CAMERA_PERMISSION_REQUEST -> {
+                if (grantResults.isNotEmpty() && 
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    startScanner()
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Permesso fotocamera negato. Impossibile avviare lo scanner.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+}
