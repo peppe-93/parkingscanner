@@ -135,13 +135,13 @@ class ScannerActivity : AppCompatActivity() {
             when {
                 ticket == null -> {
                     showError("QR Code non valido")
-                    playSound(R.raw.error_beep)
+                    //playSound(R.raw.error_beep)
                     vibrate(500)
                 }
 
                 scannedCodes.containsKey(qrCode) -> {
                     showWarning("Già scansionato: ${ticket.companyName}")
-                    playSound(R.raw.warning_beep)
+                    //playSound(R.raw.warning_beep)
                     vibrate(200)
                 }
 
@@ -149,7 +149,7 @@ class ScannerActivity : AppCompatActivity() {
                     val spots = if (isDoubleSpotMode) 2 else 1
                     scannedCodes[qrCode] = spots
                     showSuccess("${ticket.companyName} - $spots posto/i")
-                    playSound(R.raw.success_beep)
+                    //playSound(R.raw.success_beep)
                     vibrate(100)
                     updateStats()
                     resetDoubleSpot()
