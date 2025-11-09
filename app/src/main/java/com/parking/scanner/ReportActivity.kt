@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.parking.scanner.db.AppDatabase
+import com.parking.scanner.db.ParkingDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
 
 class ReportActivity : AppCompatActivity() {
     
-    private lateinit var database: AppDatabase
+    private lateinit var database: ParkingDatabase
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,7 +24,7 @@ class ReportActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = "Report Scansioni"
         
-        database = AppDatabase.getDatabase(this)
+        database = ParkingDatabase.getDatabase(this)
         
         loadReports()
     }
@@ -32,11 +32,11 @@ class ReportActivity : AppCompatActivity() {
     private fun loadReports() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val scans = database.scanDao().getAllScans()
+                val tickets = database.parkingTicketDao().getAllTickets()
                 withContext(Dispatchers.Main) {
                     // TODO: mostrare i dati in una RecyclerView
-                    // Per ora logga il numero di scansioni
-                    println("Scansioni trovate: ${scans.size}")
+                    // Per ora logga il numero di ticket
+                    println("Ticket trovati: ${tickets.size}")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
