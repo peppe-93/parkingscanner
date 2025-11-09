@@ -33,7 +33,7 @@ class ReportFileViewerActivity : AppCompatActivity() {
                 shareButton.setOnClickListener {
                     val uri: Uri = FileProvider.getUriForFile(
                         this,
-                        BuildConfig.APPLICATION_ID + ".provider",
+                        "com.parking.scanner.provider",
                         file
                     )
                     val shareIntent = Intent(Intent.ACTION_SEND)
