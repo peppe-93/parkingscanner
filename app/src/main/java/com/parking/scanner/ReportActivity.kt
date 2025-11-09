@@ -1,59 +1,35 @@
+// app/src/main/java/com/parking/scanner/ReportActivity.kt
+
 package com.parking.scanner
 
-import android.content.Intent
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.File
-import android.widget.Toast
-import android.widget.TextView
-import android.widget.Button
-import android.view.View
-import android.net.Uri
-import androidx.core.content.FileProvider
+import java.text.SimpleDateFormat
+import java.util.*
 
 class ReportActivity : AppCompatActivity() {
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var adapter: ReportFileAdapter
-    private lateinit var emptyView: TextView
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_report)
-
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = "Report sessioni"
 
-        recyclerView = findViewById(R.id.recyclerViewReports)
-        emptyView = TextView(this).apply {
-            text = "Nessun report di sessione trovato.\nEffettua una scansione e termina la sessione per generare un report."
-            textSize = 16f
-            setPadding(24, 80, 24, 24)
-        }
+        val recyclerView = findViewById<RecyclerView>(R.id.recyclerViewReports)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
         val dir = getExternalFilesDir(null)
-        val reportFiles = dir?.listFiles { file -> file.name.startsWith("report_") && file.name.endsWith(".txt") }?.sortedByDescending { it.lastModified() } ?: emptyList()
+        val reportFiles = dir?.listFiles { file -> file.name.startsWith("report_") && file.name.endsWith(".txt") }
+            ?.sortedByDescending { it.lastModified() } ?: emptyList()
 
-        if (reportFiles.isEmpty()) {
-            setContentView(emptyView)
-        } else {
-            adapter = ReportFileAdapter(reportFiles) { file ->
-                openReport(file)
-            }
-            recyclerView.adapter = adapter
-        }
-    }
-
-    private fun openReport(file: File) {
-        try {
-            val intent = Intent(this, ReportFileViewerActivity::class.java)
-            intent.putExtra("reportFilePath", file.absolutePath)
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Impossibile aprire il report", Toast.LENGTH_LONG).show()
-        }
+        recyclerView.adapter = ReportFileAdapter(reportFiles)
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -62,26 +38,40 @@ class ReportActivity : AppCompatActivity() {
     }
 }
 
-class ReportFileAdapter(private val data: List<File>, private val onClick: (File) -> Unit) : RecyclerView.Adapter<ReportFileViewHolder>() {
-    override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): ReportFileViewHolder {
-        val view = android.view.LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_2, parent, false)
-        return ReportFileViewHolder(view, onClick)
-    }
-    override fun getItemCount() = data.size
+class ReportFileAdapter(private val files: List<File>) : RecyclerView.Adapter<ReportFileViewHolder>() {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+        ReportFileViewHolder(LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_2, parent, false))
+
+    override fun getItemCount() = files.size
+
     override fun onBindViewHolder(holder: ReportFileViewHolder, position: Int) {
-        holder.bind(data[position])
+        holder.bind(files[position])
     }
 }
-class ReportFileViewHolder(view: android.view.View, private val onClick: (File) -> Unit) : RecyclerView.ViewHolder(view) {
-    private val title = view.findViewById<android.widget.TextView>(android.R.id.text1)
-    private val subtitle = view.findViewById<android.widget.TextView>(android.R.id.text2)
-    private var reportFile: File? = null
-    init {
-        view.setOnClickListener { reportFile?.let(onClick) }
+
+class ReportFileViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    private val title = view.findViewById<TextView>(android.R.id.text1)
+    private val subtitle = view.findViewById<TextView>(android.R.id.text2)
+    private var expanded = false
+    private val contentView = TextView(view.context).apply {
+        setPadding(42, 0, 16, 16)
+        visibility = View.GONE
+        textSize = 14f
+        typeface = Typeface.MONOSPACE
     }
+
+    init {
+        (view as ViewGroup).addView(contentView)
+        view.setOnClickListener {
+            expanded = !expanded
+            contentView.visibility = if (expanded) View.VISIBLE else View.GONE
+        }
+    }
+
     fun bind(file: File) {
-        reportFile = file
         title.text = file.name
-        subtitle.text = "Ultima modifica: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(java.util.Date(file.lastModified()))}"
+        subtitle.text = "Ultima modifica: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(file.lastModified()))}"
+        contentView.text = file.readText()
+        contentView.visibility = if (expanded) View.VISIBLE else View.GONE
     }
 }
