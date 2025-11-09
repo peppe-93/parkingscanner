@@ -14,86 +14,75 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
-class ReportActivity : AppCompatActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_report)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "Report sessioni"
-
-        val recyclerView = findViewById<RecyclerView>(R.id.recyclerViewReports)
-        recyclerView.layoutManager = LinearLayoutManager(this)
-
-        val dir = getExternalFilesDir(null)
-        val reportFiles = dir?.listFiles { file -> 
-            file.name.startsWith("report_") && file.name.endsWith(".txt") 
-        }?.sortedByDescending { it.lastModified() } ?: emptyList()
-
-        recyclerView.adapter = ReportFileAdapter(reportFiles)
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        finish()
-        return true
-    }
-}
-
-class ReportFileAdapter(private val files: List<File>) : RecyclerView.Adapter<ReportFileViewHolder>() {
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-        ReportFileViewHolder(
-            LayoutInflater.from(parent.context).inflate(
-                android.R.layout.simple_list_item_2, 
-                parent, 
-                false
-            )
-        )
-
-    override fun getItemCount() = files.size
-
-    override fun onBindViewHolder(holder: ReportFileViewHolder, position: Int) {
-        holder.bind(files[position])
-    }
-}
-
-class ReportFileViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-    private val title = view.findViewById<TextView>(android.R.id.text1)
-    private val subtitle = view.findViewById<TextView>(android.R.id.text2)
-
-    init {
-        itemView.setOnClickListener {  // ← usa itemView invece di view
-            val file = itemView.tag as? File ?: return@setOnClickListener  // ← usa itemView
-            showReportDialog(file)
-        }
-    }
-
-    fun bind(file: File) {
-        itemView.tag = file  // ← usa itemView invece di view
-        title.text = file.name
-        subtitle.text = "Ultima modifica: ${
-            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-                .format(Date(file.lastModified()))
-        }"
-    }
-
-    private fun showReportDialog(file: File) {
-        val context = itemView.context
-        val content = try {
-            file.readText()
-        } catch (e: Exception) {
-            "Errore lettura file: ${e.message}"
+private fun generateReport() {
+    lifecycleScope.launch {
+        // Raggruppa per azienda
+        val companiesData = mutableMapOf<String, MutableList<Pair<String, Int>>>()
+        
+        scannedCodes.forEach { (qrCode, spots) ->
+            val ticket = dao.findById(qrCode)
+            val companyName = ticket?.companyName ?: "Sconosciuto"
+            if (!companiesData.containsKey(companyName)) {
+                companiesData[companyName] = mutableListOf()
+            }
+            companiesData[companyName]?.add(Pair(qrCode, spots))
         }
 
-        val textView = TextView(context).apply {
-            text = content
-            setPadding(32, 32, 32, 32)
-            textSize = 14f
-            typeface = Typeface.MONOSPACE
+        val report = buildString {
+            appendLine("REPORT SESSIONE PARCHEGGIO")
+            appendLine("Data: ${java.time.LocalDateTime.now()}")
+            appendLine("=" .repeat(40))
+            appendLine()
+            
+            // Riepilogo generale
+            val totalScanned = scannedCodes.size
+            val totalSpots = scannedCodes.values.sum()
+            val totalDouble = scannedCodes.values.count { it == 2 }
+            
+            appendLine("RIEPILOGO GENERALE:")
+            appendLine("QR Code Scansionati: $totalScanned")
+            appendLine("Doppi Posti: $totalDouble")
+            appendLine("Posti Totali Occupati: $totalSpots")
+            appendLine()
+            appendLine("=" .repeat(40))
+            appendLine()
+            
+            // Dettaglio per azienda
+            appendLine("DETTAGLIO PER AZIENDA:")
+            appendLine()
+            
+            companiesData.forEach { (company, tickets) ->
+                val companyScanned = tickets.size
+                val companySpots = tickets.sumOf { it.second }
+                val companyDouble = tickets.count { it.second == 2 }
+                
+                appendLine("▶ $company")
+                appendLine("  QR Scansionati: $companyScanned")
+                appendLine("  Doppi Posti: $companyDouble")
+                appendLine("  Posti Occupati: $companySpots")
+                appendLine()
+            }
+            
+            appendLine("=" .repeat(40))
+            appendLine()
+            appendLine("DETTAGLIO COMPLETO:")
+            scannedCodes.forEach { (qrCode, spots) ->
+                val ticket = dao.findById(qrCode)
+                val companyName = ticket?.companyName ?: "Sconosciuto"
+                val spotType = if (spots == 2) "DOPPIO" else "NORMALE"
+                appendLine("$qrCode - $companyName - $spots posto/i ($spotType)")
+            }
         }
 
-        AlertDialog.Builder(context)
-            .setTitle("Report Dettagliato")
-            .setView(textView)
-            .setPositiveButton("Chiudi") { dialog, _ -> dialog.dismiss() }
-            .show()
+        val fileName = "report_${System.currentTimeMillis()}.txt"
+        val file = java.io.File(getExternalFilesDir(null), fileName)
+        file.writeText(report)
+
+        withContext(Dispatchers.Main) {
+            Toast.makeText(this@ScannerActivity, "Report salvato: ${file.name}", Toast.LENGTH_LONG).show()
+            scannedCodes.clear()
+            updateStats()
+            finish()
+        }
     }
 }
