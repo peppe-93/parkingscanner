@@ -216,16 +216,62 @@ class ScannerActivity : AppCompatActivity() {
     }
 
     private fun generateReport() {
+    lifecycleScope.launch {
+        // Raggruppa per azienda
+        val companiesData = mutableMapOf<String, MutableList<Pair<String, Int>>>()
+        
+        scannedCodes.forEach { (qrCode, spots) ->
+            val ticket = dao.findById(qrCode)
+            val companyName = ticket?.companyName ?: "Sconosciuto"
+            if (!companiesData.containsKey(companyName)) {
+                companiesData[companyName] = mutableListOf()
+            }
+            companiesData[companyName]?.add(Pair(qrCode, spots))
+        }
+
         val report = buildString {
             appendLine("REPORT SESSIONE PARCHEGGIO")
             appendLine("Data: ${java.time.LocalDateTime.now()}")
             appendLine("=" .repeat(40))
-            appendLine("QR Code Scansionati: ${scannedCodes.size}")
-            appendLine("Posti Totali: ${scannedCodes.values.sum()}")
             appendLine()
-            appendLine("Dettaglio:")
+            
+            // Riepilogo generale
+            val totalScanned = scannedCodes.size
+            val totalSpots = scannedCodes.values.sum()
+            val totalDouble = scannedCodes.values.count { it == 2 }
+            
+            appendLine("RIEPILOGO GENERALE:")
+            appendLine("QR Code Scansionati: $totalScanned")
+            appendLine("Doppi Posti: $totalDouble")
+            appendLine("Posti Totali Occupati: $totalSpots")
+            appendLine()
+            appendLine("=" .repeat(40))
+            appendLine()
+            
+            // Dettaglio per azienda
+            appendLine("DETTAGLIO PER AZIENDA:")
+            appendLine()
+            
+            companiesData.forEach { (company, tickets) ->
+                val companyScanned = tickets.size
+                val companySpots = tickets.sumOf { it.second }
+                val companyDouble = tickets.count { it.second == 2 }
+                
+                appendLine("▶ $company")
+                appendLine("  QR Scansionati: $companyScanned")
+                appendLine("  Doppi Posti: $companyDouble")
+                appendLine("  Posti Occupati: $companySpots")
+                appendLine()
+            }
+            
+            appendLine("=" .repeat(40))
+            appendLine()
+            appendLine("DETTAGLIO COMPLETO:")
             scannedCodes.forEach { (qrCode, spots) ->
-                appendLine("$qrCode - $spots posto/i")
+                val ticket = dao.findById(qrCode)
+                val companyName = ticket?.companyName ?: "Sconosciuto"
+                val spotType = if (spots == 2) "DOPPIO" else "NORMALE"
+                appendLine("$qrCode - $companyName - $spots posto/i ($spotType)")
             }
         }
 
@@ -233,33 +279,11 @@ class ScannerActivity : AppCompatActivity() {
         val file = java.io.File(getExternalFilesDir(null), fileName)
         file.writeText(report)
 
-        Toast.makeText(this, "Report salvato: ${file.name}", Toast.LENGTH_LONG).show()
-
-        scannedCodes.clear()
-        updateStats()
-        finish()
-    }
-
-    private fun vibrate(duration: Long) {
-        val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
-        if (vibrator.hasVibrator()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(duration)
-            }
-        }
-    }
-
-    private fun playSound(soundRes: Int) {
-        try {
-            MediaPlayer.create(this, soundRes).apply {
-                start()
-                setOnCompletionListener { release() }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        withContext(Dispatchers.Main) {
+            Toast.makeText(this@ScannerActivity, "Report salvato: ${file.name}", Toast.LENGTH_LONG).show()
+            scannedCodes.clear()
+            updateStats()
+            finish()
         }
     }
 }
