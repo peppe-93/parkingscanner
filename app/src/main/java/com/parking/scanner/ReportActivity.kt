@@ -60,14 +60,14 @@ class ReportFileViewHolder(view: View) : RecyclerView.ViewHolder(view) {
     private val subtitle = view.findViewById<TextView>(android.R.id.text2)
 
     init {
-        view.setOnClickListener {
-            val file = view.tag as? File ?: return@setOnClickListener
+        itemView.setOnClickListener {  // ← usa itemView invece di view
+            val file = itemView.tag as? File ?: return@setOnClickListener  // ← usa itemView
             showReportDialog(file)
         }
     }
 
     fun bind(file: File) {
-        view.tag = file
+        itemView.tag = file  // ← usa itemView invece di view
         title.text = file.name
         subtitle.text = "Ultima modifica: ${
             SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
