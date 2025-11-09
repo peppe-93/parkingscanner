@@ -9,5 +9,6 @@ data class ParkingTicketEntity(
     val companyName: String,
     val color: String,
     val timestamp: String,
-    val isValid: Boolean = true
+    val isValid: Boolean = true,
+    val isDouble: Boolean = false // nuovo campo
 )
