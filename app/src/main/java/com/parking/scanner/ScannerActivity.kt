@@ -22,6 +22,8 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.parking.scanner.databinding.ActivityScannerBinding
 import com.parking.scanner.db.ParkingDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
