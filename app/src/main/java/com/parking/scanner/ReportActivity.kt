@@ -76,24 +76,29 @@ class ReportFileViewHolder(view: View) : RecyclerView.ViewHolder(view) {
     }
 
     private fun showReportDialog(file: File) {
-        val context = itemView.context
-        val content = try {
-            file.readText()
-        } catch (e: Exception) {
-            "Errore lettura file: ${e.message}"
-        }
-
-        val textView = TextView(context).apply {
-            text = content
-            setPadding(32, 32, 32, 32)
-            textSize = 14f
-            typeface = Typeface.MONOSPACE
-        }
-
-        AlertDialog.Builder(context)
-            .setTitle("Report Dettagliato")
-            .setView(textView)
-            .setPositiveButton("Chiudi") { dialog, _ -> dialog.dismiss() }
-            .show()
+    val context = itemView.context
+    val content = try {
+        file.readText()
+    } catch (e: Exception) {
+        "Errore lettura file: ${e.message}"
     }
+
+    val textView = TextView(context).apply {
+        text = content
+        setPadding(32, 32, 32, 32)
+        textSize = 14f
+        typeface = Typeface.MONOSPACE
+    }
+
+    // Avvolgi il TextView in uno ScrollView
+    val scrollView = android.widget.ScrollView(context).apply {
+        addView(textView)
+    }
+
+    AlertDialog.Builder(context)
+        .setTitle("Report Dettagliato")
+        .setView(scrollView)  // ← Usa scrollView invece di textView
+        .setPositiveButton("Chiudi") { dialog, _ -> dialog.dismiss() }
+        .show()
+}
 }
