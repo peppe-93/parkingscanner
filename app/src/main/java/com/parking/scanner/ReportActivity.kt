@@ -8,6 +8,10 @@ import androidx.recyclerview.widget.RecyclerView
 import java.io.File
 import android.widget.Toast
 import android.widget.TextView
+import android.widget.Button
+import android.view.View
+import android.net.Uri
+import androidx.core.content.FileProvider
 
 class ReportActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
