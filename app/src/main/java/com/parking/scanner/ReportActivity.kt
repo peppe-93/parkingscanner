@@ -1,5 +1,3 @@
-// app/src/main/java/com/parking/scanner/ReportActivity.kt
-
 package com.parking.scanner
 
 import android.graphics.Typeface
@@ -8,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -26,8 +25,9 @@ class ReportActivity : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
 
         val dir = getExternalFilesDir(null)
-        val reportFiles = dir?.listFiles { file -> file.name.startsWith("report_") && file.name.endsWith(".txt") }
-            ?.sortedByDescending { it.lastModified() } ?: emptyList()
+        val reportFiles = dir?.listFiles { file -> 
+            file.name.startsWith("report_") && file.name.endsWith(".txt") 
+        }?.sortedByDescending { it.lastModified() } ?: emptyList()
 
         recyclerView.adapter = ReportFileAdapter(reportFiles)
     }
@@ -40,7 +40,13 @@ class ReportActivity : AppCompatActivity() {
 
 class ReportFileAdapter(private val files: List<File>) : RecyclerView.Adapter<ReportFileViewHolder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-        ReportFileViewHolder(LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_2, parent, false))
+        ReportFileViewHolder(
+            LayoutInflater.from(parent.context).inflate(
+                android.R.layout.simple_list_item_2, 
+                parent, 
+                false
+            )
+        )
 
     override fun getItemCount() = files.size
 
@@ -52,26 +58,42 @@ class ReportFileAdapter(private val files: List<File>) : RecyclerView.Adapter<Re
 class ReportFileViewHolder(view: View) : RecyclerView.ViewHolder(view) {
     private val title = view.findViewById<TextView>(android.R.id.text1)
     private val subtitle = view.findViewById<TextView>(android.R.id.text2)
-    private var expanded = false
-    private val contentView = TextView(view.context).apply {
-        setPadding(42, 0, 16, 16)
-        visibility = View.GONE
-        textSize = 14f
-        typeface = Typeface.MONOSPACE
-    }
 
     init {
-        (view as ViewGroup).addView(contentView)
         view.setOnClickListener {
-            expanded = !expanded
-            contentView.visibility = if (expanded) View.VISIBLE else View.GONE
+            val file = view.tag as? File ?: return@setOnClickListener
+            showReportDialog(file)
         }
     }
 
     fun bind(file: File) {
+        view.tag = file
         title.text = file.name
-        subtitle.text = "Ultima modifica: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(file.lastModified()))}"
-        contentView.text = file.readText()
-        contentView.visibility = if (expanded) View.VISIBLE else View.GONE
+        subtitle.text = "Ultima modifica: ${
+            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                .format(Date(file.lastModified()))
+        }"
+    }
+
+    private fun showReportDialog(file: File) {
+        val context = itemView.context
+        val content = try {
+            file.readText()
+        } catch (e: Exception) {
+            "Errore lettura file: ${e.message}"
+        }
+
+        val textView = TextView(context).apply {
+            text = content
+            setPadding(32, 32, 32, 32)
+            textSize = 14f
+            typeface = Typeface.MONOSPACE
+        }
+
+        AlertDialog.Builder(context)
+            .setTitle("Report Dettagliato")
+            .setView(textView)
+            .setPositiveButton("Chiudi") { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 }
