@@ -286,8 +286,31 @@ class ScannerActivity : AppCompatActivity() {
             Toast.makeText(this@ScannerActivity, "Report salvato: ${file.name}", Toast.LENGTH_LONG).show()
             scannedCodes.clear()
             updateStats()
-            finish()
+              finish()
+            }
+        }
+    }  // ← QUESTA PARENTESI CHIUDE generateReport()
+
+    private fun vibrate(duration: Long) {
+        val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
+        if (vibrator.hasVibrator()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(duration)
+            }
         }
     }
-}
+
+    private fun playSound(soundRes: Int) {
+        try {
+            MediaPlayer.create(this, soundRes).apply {
+                start()
+                setOnCompletionListener { release() }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }
