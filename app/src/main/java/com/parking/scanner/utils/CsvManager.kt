@@ -15,15 +15,25 @@ class CsvManager(private val context: Context) {
         val csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader()
             .parse(InputStreamReader(file.inputStream()))
 
+        // Mapping header: consente sia maiuscolo che minuscolo
+        val headerToField = mutableMapOf<String, String>()
+        csvParser.headerMap.keys.forEach { key ->
+            val normalized = key.trim().lowercase()
+            when (normalized) {
+                "id" -> headerToField["id"] = key
+                "company_name" -> headerToField["company_name"] = key
+                "color" -> headerToField["color"] = key
+                "timestamp" -> headerToField["timestamp"] = key
+            }
+        }
         val tickets = mutableListOf<ParkingTicketEntity>()
-
         for (record in csvParser) {
             try {
                 val ticket = ParkingTicketEntity(
-                    id = record["ID"],
-                    companyName = record["COMPANY_NAME"],
-                    color = record["COLOR"],
-                    timestamp = record["TIMESTAMP"],
+                    id = record.get(headerToField["id"]),
+                    companyName = record.get(headerToField["company_name"]),
+                    color = record.get(headerToField["color"]),
+                    timestamp = record.get(headerToField["timestamp"]),
                     isValid = true
                 )
                 tickets.add(ticket)
@@ -42,6 +52,5 @@ class CsvManager(private val context: Context) {
     }
 
     suspend fun getTickets() = dao.getAllTickets()
-    
     suspend fun getCompanies() = dao.getCompanies()
 }
