@@ -1,90 +1,54 @@
 package com.parking.scanner
 
-import android.content.Context
+import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.parking.scanner.db.ParkingDatabase
-import com.parking.scanner.db.ParkingTicketEntity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import android.widget.Button
 import java.io.File
-import java.io.FileWriter
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import android.widget.Toast
+import android.widget.TextView
 
 class ReportActivity : AppCompatActivity() {
-    private lateinit var database: ParkingDatabase
     private lateinit var recyclerView: RecyclerView
-    private lateinit var adapter: CompanyReportAdapter
-    private lateinit var btnExport: Button
-    private var reportData: List<CompanyReport> = emptyList()
+    private lateinit var adapter: ReportFileAdapter
+    private lateinit var emptyView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_report)
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "Report Scansioni"
+        supportActionBar?.title = "Report sessioni"
 
-        database = ParkingDatabase.getDatabase(this)
         recyclerView = findViewById(R.id.recyclerViewReports)
-        btnExport = findViewById(R.id.btnExportReport)
-
+        emptyView = TextView(this).apply {
+            text = "Nessun report di sessione trovato.\nEffettua una scansione e termina la sessione per generare un report."
+            textSize = 16f
+            setPadding(24, 80, 24, 24)
+        }
         recyclerView.layoutManager = LinearLayoutManager(this)
-        adapter = CompanyReportAdapter()
-        recyclerView.adapter = adapter
 
-        loadReports()
-        btnExport.setOnClickListener {
-            exportReportToCsv()
-        }
-    }
+        val dir = getExternalFilesDir(null)
+        val reportFiles = dir?.listFiles { file -> file.name.startsWith("report_") && file.name.endsWith(".txt") }?.sortedByDescending { it.lastModified() } ?: emptyList()
 
-    private fun loadReports() {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val tickets = database.parkingTicketDao().getAllTickets()
-                // Aggrega per azienda
-                val companyGroups = tickets.groupBy { it.companyName }
-                val reports = companyGroups.map { (company, list) ->
-                    val doubleCount = list.count { it.isDouble }
-                    val normalCount = list.size - doubleCount
-                    val totalCount = normalCount + (doubleCount * 2)
-                    CompanyReport(company, normalCount, doubleCount, totalCount)
-                }
-                withContext(Dispatchers.Main) {
-                    reportData = reports
-                    adapter.submitList(reports)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@ReportActivity, "Errore caricamento report", Toast.LENGTH_LONG).show()
-                }
+        if (reportFiles.isEmpty()) {
+            setContentView(emptyView)
+        } else {
+            adapter = ReportFileAdapter(reportFiles) { file ->
+                openReport(file)
             }
+            recyclerView.adapter = adapter
         }
     }
 
-    private fun exportReportToCsv() {
+    private fun openReport(file: File) {
         try {
-            val fileName = "parking_report_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv"
-            val file = File(getExternalFilesDir(null), fileName)
-            FileWriter(file).use { writer ->
-                writer.append("Azienda,Posti Occupati,Doppi Posti,Totale\n")
-                for (report in reportData) {
-                    writer.append("${report.company},${report.normalCount},${report.doubleCount},${report.totalCount}\n")
-                }
-            }
-            Toast.makeText(this, "Report esportato in ${file.absolutePath}", Toast.LENGTH_LONG).show()
+            val intent = Intent(this, ReportFileViewerActivity::class.java)
+            intent.putExtra("reportFilePath", file.absolutePath)
+            startActivity(intent)
         } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Errore esportazione report", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Impossibile aprire il report", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -94,30 +58,26 @@ class ReportActivity : AppCompatActivity() {
     }
 }
 
-// Dati per la visualizzazione report
-data class CompanyReport(val company: String, val normalCount: Int, val doubleCount: Int, val totalCount: Int)
-
-// Adapter minimal per la lista delle aziende
-class CompanyReportAdapter : RecyclerView.Adapter<CompanyReportViewHolder>() {
-    private var items: List<CompanyReport> = emptyList()
-    fun submitList(data: List<CompanyReport>) {
-        items = data
-        notifyDataSetChanged()
-    }
-    override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): CompanyReportViewHolder {
+class ReportFileAdapter(private val data: List<File>, private val onClick: (File) -> Unit) : RecyclerView.Adapter<ReportFileViewHolder>() {
+    override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): ReportFileViewHolder {
         val view = android.view.LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_2, parent, false)
-        return CompanyReportViewHolder(view)
+        return ReportFileViewHolder(view, onClick)
     }
-    override fun getItemCount() = items.size
-    override fun onBindViewHolder(holder: CompanyReportViewHolder, position: Int) {
-        holder.bind(items[position])
+    override fun getItemCount() = data.size
+    override fun onBindViewHolder(holder: ReportFileViewHolder, position: Int) {
+        holder.bind(data[position])
     }
 }
-class CompanyReportViewHolder(view: android.view.View) : RecyclerView.ViewHolder(view) {
+class ReportFileViewHolder(view: android.view.View, private val onClick: (File) -> Unit) : RecyclerView.ViewHolder(view) {
     private val title = view.findViewById<android.widget.TextView>(android.R.id.text1)
     private val subtitle = view.findViewById<android.widget.TextView>(android.R.id.text2)
-    fun bind(report: CompanyReport) {
-        title.text = "${report.company} - Totale ${report.totalCount}"
-        subtitle.text = "Normali: ${report.normalCount} | Doppi: ${report.doubleCount}"
+    private var reportFile: File? = null
+    init {
+        view.setOnClickListener { reportFile?.let(onClick) }
+    }
+    fun bind(file: File) {
+        reportFile = file
+        title.text = file.name
+        subtitle.text = "Ultima modifica: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(java.util.Date(file.lastModified()))}"
     }
 }
